@@ -127,7 +127,7 @@ export default function LoginPage() {
           <div className="inline-block border border-white/25 text-white/60 text-xs font-semibold tracking-[3px] uppercase px-5 py-1.5 rounded-full mb-4">
             College Fest Portal
           </div>
-          <h1 className="font-playfair text-6xl font-black text-white leading-tight tracking-tight mb-3 text-shimmer" style={{ WebkitTextFillColor: "white" }}>
+          <h1 className="font-playfair text-5xl md:text-6xl font-black text-white leading-tight tracking-tight mb-3 text-shimmer" style={{ WebkitTextFillColor: "white" }}>
             UtsavHub
           </h1>
           <p className="text-white/55 text-base max-w-md mx-auto">

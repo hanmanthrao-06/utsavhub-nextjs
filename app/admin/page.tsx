@@ -109,7 +109,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen" style={{ background:"linear-gradient(160deg,#faf8ff 0%,#f5f0fa 30%,#eef6f8 60%,#f0f8f4 100%)" }}>
       <Navbar userName={user?.name} />
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10">
 
         {!authed ? (
           <div className="max-w-md mx-auto">
@@ -147,7 +147,7 @@ export default function AdminPage() {
 
             {/* Metrics */}
             {data?.metrics && (
-              <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 {[
                   { icon:"📝", num:parseInt(data.metrics.regs).toLocaleString(), label:"Registrations" },
                   { icon:"👥", num:parseInt(data.metrics.parts).toLocaleString(), label:"Participants" },

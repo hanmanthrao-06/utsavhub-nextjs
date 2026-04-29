@@ -47,7 +47,7 @@ export default function RegistrationsPage() {
   return (
     <div className="min-h-screen" style={{ background:"linear-gradient(160deg,#faf8ff 0%,#f5f0fa 30%,#eef6f8 60%,#f0f8f4 100%)" }}>
       <Navbar userName={user.name} />
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-down">
           <h1 className="font-playfair text-4xl font-bold text-[#1a1a2e] mb-2">My Registrations</h1>
@@ -56,7 +56,7 @@ export default function RegistrationsPage() {
 
         {/* Summary */}
         {regs.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-8 animate-fade-in">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 animate-fade-in">
             {[
               { num: regs.length, label: "Events Registered" },
               { num: festNames.length, label: "Fests" },
@@ -92,7 +92,7 @@ export default function RegistrationsPage() {
                   <span className="text-sm font-bold px-4 py-1.5 rounded-full" style={{ background:fc, color:ft }}>{festName}</span>
                   <span className="text-xs text-[#aaa]">{grouped[festName].length} events</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {grouped[festName].map(r => {
                     const [cbg, ccolor] = CAT_COLORS[(r.category||"").toLowerCase()] || ["#f0f0f0","#666"];
                     return (
