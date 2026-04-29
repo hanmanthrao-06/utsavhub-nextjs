@@ -1,26 +1,37 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend,
+  CartesianGrid, ResponsiveContainer
+} from "recharts";
 
 const ADMIN_EMAIL = "varshitha0512@gmail.com";
 const ADMIN_PASS  = "admin@123";
 const ADMIN_TOKEN = "ADMIN_SECURE_TOKEN_2026";
-const COLORS = ["#b388c8","#7bbfcc","#f4a0b0","#f5c87a","#a8c87a","#88b8c8"];
+const COLORS = ["#b388c8","#7bbfcc","#f4a0b0","#f5c87a","#a8c87a","#88b8c8","#c8a8b3","#a8c8b3","#c8c8a8","#a8b3c8"];
 
 export default function AdminPage() {
   const router = useRouter();
+  const chartRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<{participant_id:number;name:string}|null>(null);
   const [authed, setAuthed] = useState(false);
   const [email, setEmail] = useState(""); const [pass, setPass] = useState(""); const [token, setToken] = useState("");
   const [loginErr, setLoginErr] = useState("");
   const [data, setData] = useState<any>(null);
-  const [compareBy, setCompareBy] = useState("Schools");
-  const [selectedFest, setSelectedFest] = useState("All");
-  const [selectedFestForEvents, setSelectedFestForEvents] = useState("");
+
+  // Graph Builder state
+  const [xAxis, setXAxis] = useState("school");
+  const [yAxis, setYAxis] = useState("count");
+  const [chartType, setChartType] = useState("bar");
+  const [filterFest, setFilterFest] = useState("All");
+  const [filterType, setFilterType] = useState("All");
+  const [customMode, setCustomMode] = useState(false);
   const [customSelection, setCustomSelection] = useState<string[]>([]);
   const [chartData, setChartData] = useState<{name:string;value:number}[]>([]);
+
   const [regSearch, setRegSearch] = useState("");
   const [regSortBy, setRegSortBy] = useState("date_desc");
   // Fest management
@@ -128,10 +139,15 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!data) return;
-    const rows = data.analytics || [];
+    let rows = data.analytics || [];
+
+    // Apply filters
+    if (filterFest !== "All") rows = rows.filter((r:any) => r.fest === filterFest);
+    if (filterType !== "All") rows = rows.filter((r:any) => r.participant_type === filterType);
+
     const counts: Record<string,number> = {};
 
-    if (compareBy === "Custom") {
+    if (customMode && customSelection.length > 0) {
       rows.forEach((r:any) => {
         const candidates = [r.school_name, r.fest, r.sub_event, r.participant_type];
         const key = candidates.find(v => v && customSelection.includes(v));
@@ -139,14 +155,22 @@ export default function AdminPage() {
       });
     } else {
       rows.forEach((r:any) => {
-        const key = compareBy === "Schools" ? r.school_name
-          : compareBy === "Fests" ? r.fest
-          : r.participant_type;
+        let key = "";
+        if (xAxis === "school") key = r.school_name || "Unknown";
+        else if (xAxis === "fest") key = r.fest || "Unknown";
+        else if (xAxis === "event") key = r.sub_event || "Unknown";
+        else if (xAxis === "type") key = r.participant_type || "Unknown";
         if (key) counts[key] = (counts[key]||0) + 1;
       });
     }
-    setChartData(Object.entries(counts).map(([name,value]) => ({ name:name||"Unknown", value })).sort((a,b)=>b.value-a.value).slice(0,20));
-  }, [data, compareBy, customSelection]);
+
+    let result = Object.entries(counts).map(([name,value]) => ({ name, value }));
+    if (yAxis === "percent") {
+      const total = result.reduce((s,r) => s+r.value, 0);
+      result = result.map(r => ({ ...r, value: total > 0 ? Math.round((r.value/total)*100) : 0 }));
+    }
+    setChartData(result.sort((a,b) => b.value-a.value).slice(0,20));
+  }, [data, xAxis, yAxis, filterFest, filterType, customMode, customSelection]);
 
   const fests = data ? [...new Set((data.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[] : [];
 
@@ -207,79 +231,218 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Analytics */}
+            {/* Analytics Graph Builder */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8] mb-6">
-              <h2 className="font-semibold text-[#1a1a2e] text-base mb-4">Participation Analytics</h2>
-              <div className="flex flex-wrap gap-3 mb-4">
-                {["Schools","Fests","Internal vs External","Custom"].map(opt => (
-                  <button key={opt} onClick={() => { setCompareBy(opt); setCustomSelection([]); }}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${compareBy===opt ? "bg-[#1a1a2e] text-white" : "bg-[#f5f5f5] text-[#555] hover:bg-[#eee]"}`}>
-                    {opt}
-                  </button>
-                ))}
+              <h2 className="font-semibold text-[#1a1a2e] text-base mb-5">Analytics Graph Builder</h2>
+
+              {/* Controls row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div>
+                  <label className="text-xs text-[#888] font-semibold mb-1 block uppercase tracking-wider">X Axis</label>
+                  <select value={xAxis} onChange={e => { setXAxis(e.target.value); setCustomMode(false); }}
+                    className="w-full bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#b388c8]">
+                    <option value="school">School</option>
+                    <option value="fest">Fest</option>
+                    <option value="event">Event</option>
+                    <option value="type">Internal / External</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-[#888] font-semibold mb-1 block uppercase tracking-wider">Y Axis</label>
+                  <select value={yAxis} onChange={e => setYAxis(e.target.value)}
+                    className="w-full bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#b388c8]">
+                    <option value="count">Registration Count</option>
+                    <option value="percent">Percentage (%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-[#888] font-semibold mb-1 block uppercase tracking-wider">Chart Type</label>
+                  <div className="flex gap-1">
+                    {[
+                      { v:"bar", label:"Bar" },
+                      { v:"line", label:"Line" },
+                      { v:"area", label:"Area" },
+                      { v:"pie", label:"Pie" },
+                    ].map(ct => (
+                      <button key={ct.v} onClick={() => setChartType(ct.v)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${chartType===ct.v ? "bg-[#1a1a2e] text-white" : "bg-[#f5f5f5] text-[#555] hover:bg-[#eee]"}`}>
+                        {ct.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-[#888] font-semibold mb-1 block uppercase tracking-wider">Filters</label>
+                  <div className="flex gap-1">
+                    <select value={filterFest} onChange={e => setFilterFest(e.target.value)}
+                      className="flex-1 bg-[#fafafa] border border-[#eee] rounded-lg px-2 py-2 text-xs focus:outline-none">
+                      <option value="All">All Fests</option>
+                      {fests.map(f => <option key={f}>{f}</option>)}
+                    </select>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value)}
+                      className="flex-1 bg-[#fafafa] border border-[#eee] rounded-lg px-2 py-2 text-xs focus:outline-none">
+                      <option value="All">All Types</option>
+                      <option value="internal">Internal</option>
+                      <option value="external">External</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              {/* Custom selection — organized by category */}
-              {compareBy === "Custom" && (() => {
+              {/* Custom selection toggle */}
+              <div className="flex items-center gap-3 mb-4">
+                <button onClick={() => { setCustomMode(!customMode); setCustomSelection([]); }}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all border ${customMode ? "bg-[#1a1a2e] text-white border-[#1a1a2e]" : "bg-white text-[#555] border-[#eee] hover:border-[#b388c8]"}`}>
+                  Custom Selection {customMode ? "ON" : "OFF"}
+                </button>
+                {customMode && customSelection.length > 0 && (
+                  <button onClick={() => setCustomSelection([])} className="text-xs text-[#c0546a] hover:underline">Clear ({customSelection.length})</button>
+                )}
+              </div>
+
+              {/* Custom selection — events grouped under fests */}
+              {customMode && (() => {
                 const allSchools = [...new Set((data?.analytics||[]).map((r:any) => r.school_name).filter(Boolean))] as string[];
                 const allFestNames = [...new Set((data?.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[];
-                const allEventNames = [...new Set((data?.analytics||[]).map((r:any) => r.sub_event).filter(Boolean))] as string[];
-                const sections = [
-                  { label: "Schools", items: allSchools, color: "#F0D9EF", textColor: "#9b6aaa" },
-                  { label: "Fests", items: allFestNames, color: "#C4DFE5", textColor: "#4a8fa0" },
-                  { label: "Events", items: allEventNames, color: "#FFE6BB", textColor: "#b07d2a" },
-                  { label: "Type", items: ["internal","external"], color: "#CDE9DC", textColor: "#3a7a5a" },
-                ];
+                // Group events by fest
+                const eventsByFest: Record<string, string[]> = {};
+                (data?.analytics||[]).forEach((r:any) => {
+                  if (r.fest && r.sub_event) {
+                    if (!eventsByFest[r.fest]) eventsByFest[r.fest] = [];
+                    if (!eventsByFest[r.fest].includes(r.sub_event)) eventsByFest[r.fest].push(r.sub_event);
+                  }
+                });
+
                 return (
                   <div className="mb-4 p-4 bg-[#faf8ff] border border-[#ede8ff] rounded-xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-[#555]">Select items to compare — {customSelection.length} selected</p>
-                      {customSelection.length > 0 && (
-                        <button onClick={() => setCustomSelection([])} className="text-xs text-[#c0546a] hover:underline">Clear all</button>
-                      )}
-                    </div>
-                    {sections.map(sec => (
-                      <div key={sec.label}>
-                        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: sec.textColor }}>{sec.label}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {sec.items.map(item => (
-                            <button key={item} onClick={() => setCustomSelection(prev =>
-                              prev.includes(item) ? prev.filter(x=>x!==item) : [...prev, item]
-                            )}
-                              className="px-3 py-1 rounded-full text-xs font-semibold transition-all border"
-                              style={customSelection.includes(item)
-                                ? { background: "#1a1a2e", color: "white", borderColor: "#1a1a2e" }
-                                : { background: sec.color, color: sec.textColor, borderColor: sec.color }
-                              }>
-                              {item}
-                            </button>
-                          ))}
-                        </div>
+                    {/* Schools */}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#9b6aaa] mb-2">Schools</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allSchools.map(item => (
+                          <button key={item} onClick={() => setCustomSelection(prev => prev.includes(item) ? prev.filter(x=>x!==item) : [...prev,item])}
+                            className="px-3 py-1 rounded-full text-xs font-semibold transition-all border"
+                            style={customSelection.includes(item) ? { background:"#1a1a2e", color:"white", borderColor:"#1a1a2e" } : { background:"#F0D9EF", color:"#9b6aaa", borderColor:"#F0D9EF" }}>
+                            {item}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Fests + Events grouped */}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#4a8fa0] mb-2">Fests & Events</p>
+                      {allFestNames.map(fest => (
+                        <div key={fest} className="mb-3">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <button onClick={() => setCustomSelection(prev => prev.includes(fest) ? prev.filter(x=>x!==fest) : [...prev,fest])}
+                              className="px-3 py-1 rounded-full text-xs font-bold transition-all border"
+                              style={customSelection.includes(fest) ? { background:"#1a1a2e", color:"white", borderColor:"#1a1a2e" } : { background:"#C4DFE5", color:"#4a8fa0", borderColor:"#C4DFE5" }}>
+                              {fest}
+                            </button>
+                            <span className="text-xs text-[#bbb]">→ events:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 pl-4">
+                            {(eventsByFest[fest]||[]).map(ev => (
+                              <button key={ev} onClick={() => setCustomSelection(prev => prev.includes(ev) ? prev.filter(x=>x!==ev) : [...prev,ev])}
+                                className="px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all border"
+                                style={customSelection.includes(ev) ? { background:"#1a1a2e", color:"white", borderColor:"#1a1a2e" } : { background:"#FFE6BB", color:"#b07d2a", borderColor:"#FFE6BB" }}>
+                                {ev}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Type */}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#3a7a5a] mb-2">Participant Type</p>
+                      <div className="flex gap-1.5">
+                        {["internal","external"].map(item => (
+                          <button key={item} onClick={() => setCustomSelection(prev => prev.includes(item) ? prev.filter(x=>x!==item) : [...prev,item])}
+                            className="px-3 py-1 rounded-full text-xs font-semibold transition-all border"
+                            style={customSelection.includes(item) ? { background:"#1a1a2e", color:"white", borderColor:"#1a1a2e" } : { background:"#CDE9DC", color:"#3a7a5a", borderColor:"#CDE9DC" }}>
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
-              {chartData.length > 0 && (
-                <div className="grid grid-cols-2 gap-6">
-                  <ResponsiveContainer width="100%" height={250}>
+
+              {/* Chart */}
+              <div ref={chartRef} className="mt-2">
+                {chartData.length === 0 ? (
+                  <div className="text-center py-12 text-[#bbb] text-sm">No data for selected filters</div>
+                ) : chartType === "pie" ? (
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
-                      <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({name,percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
+                      <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120}
+                        label={({name,percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
                         {chartData.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(v:any) => [v, yAxis === "percent" ? "%" : "Registrations"]} />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={chartData}>
-                      <XAxis dataKey="name" tick={{ fontSize:10 }} angle={-20} textAnchor="end" />
+                ) : chartType === "line" ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <LineChart data={chartData} margin={{ bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0eef8" />
+                      <XAxis dataKey="name" tick={{ fontSize:10 }} angle={-30} textAnchor="end" interval={0} />
+                      <YAxis tick={{ fontSize:10 }} label={{ value: yAxis==="percent" ? "%" : "Count", angle:-90, position:"insideLeft", style:{fontSize:10} }} />
+                      <Tooltip formatter={(v:any) => [v, yAxis==="percent" ? "%" : "Registrations"]} />
+                      <Line type="monotone" dataKey="value" stroke="#b388c8" strokeWidth={2} dot={{ fill:"#b388c8", r:4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : chartType === "area" ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <AreaChart data={chartData} margin={{ bottom: 60 }}>
+                      <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#b388c8" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#b388c8" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0eef8" />
+                      <XAxis dataKey="name" tick={{ fontSize:10 }} angle={-30} textAnchor="end" interval={0} />
                       <YAxis tick={{ fontSize:10 }} />
-                      <Tooltip />
+                      <Tooltip formatter={(v:any) => [v, yAxis==="percent" ? "%" : "Registrations"]} />
+                      <Area type="monotone" dataKey="value" stroke="#b388c8" fill="url(#areaGrad)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={chartData} margin={{ bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0eef8" />
+                      <XAxis dataKey="name" tick={{ fontSize:10 }} angle={-30} textAnchor="end" interval={0} />
+                      <YAxis tick={{ fontSize:10 }} label={{ value: yAxis==="percent" ? "%" : "Count", angle:-90, position:"insideLeft", style:{fontSize:10} }} />
+                      <Tooltip formatter={(v:any) => [v, yAxis==="percent" ? "%" : "Registrations"]} />
                       <Bar dataKey="value" radius={[6,6,0,0]}>
                         {chartData.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                )}
+              </div>
+
+              {/* Summary below chart */}
+              {chartData.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[#f0eef8] grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-xs text-[#aaa] uppercase tracking-wider">Total</div>
+                    <div className="font-bold text-[#1a1a2e]">{chartData.reduce((s,r)=>s+r.value,0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#aaa] uppercase tracking-wider">Top</div>
+                    <div className="font-bold text-[#9b6aaa] text-sm truncate">{chartData[0]?.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#aaa] uppercase tracking-wider">Categories</div>
+                    <div className="font-bold text-[#1a1a2e]">{chartData.length}</div>
+                  </div>
                 </div>
               )}
             </div>
