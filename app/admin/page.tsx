@@ -129,31 +129,24 @@ export default function AdminPage() {
   useEffect(() => {
     if (!data) return;
     const rows = data.analytics || [];
-    let filtered = rows;
-    if (selectedFest !== "All") filtered = rows.filter((r:any) => r.fest === selectedFest);
     const counts: Record<string,number> = {};
 
-    if (compareBy === "Events in Fest") {
-      const festRows = selectedFestForEvents ? rows.filter((r:any) => r.fest === selectedFestForEvents) : filtered;
-      festRows.forEach((r:any) => { const k = r.sub_event||"Unknown"; counts[k]=(counts[k]||0)+1; });
-    } else if (compareBy === "Custom") {
-      filtered.forEach((r:any) => {
-        const school = r.school_name||"Unknown";
-        const dept = r.department||"Unknown";
-        const type = r.participant_type||"Unknown";
-        const fest = r.fest||"Unknown";
-        const event = r.sub_event||"Unknown";
-        const key = [school,dept,type,fest,event].find(v => customSelection.includes(v));
-        if (key) counts[key]=(counts[key]||0)+1;
+    if (compareBy === "Custom") {
+      rows.forEach((r:any) => {
+        const candidates = [r.school_name, r.fest, r.sub_event, r.participant_type];
+        const key = candidates.find(v => v && customSelection.includes(v));
+        if (key) counts[key] = (counts[key]||0) + 1;
       });
     } else {
-      filtered.forEach((r:any) => {
-        const key = compareBy==="Schools" ? r.school_name : compareBy==="Departments" ? r.department : compareBy==="Fests" ? r.fest : r.participant_type;
-        if (key) counts[key]=(counts[key]||0)+1;
+      rows.forEach((r:any) => {
+        const key = compareBy === "Schools" ? r.school_name
+          : compareBy === "Fests" ? r.fest
+          : r.participant_type;
+        if (key) counts[key] = (counts[key]||0) + 1;
       });
     }
     setChartData(Object.entries(counts).map(([name,value]) => ({ name:name||"Unknown", value })).sort((a,b)=>b.value-a.value).slice(0,20));
-  }, [data, compareBy, selectedFest, selectedFestForEvents, customSelection]);
+  }, [data, compareBy, customSelection]);
 
   const fests = data ? [...new Set((data.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[] : [];
 
@@ -217,53 +210,56 @@ export default function AdminPage() {
             {/* Analytics */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8] mb-6">
               <h2 className="font-semibold text-[#1a1a2e] text-base mb-4">Participation Analytics</h2>
-              <div className="flex flex-wrap gap-3 mb-6">
-                {["Schools","Departments","Fests","Internal vs External","Events in Fest","Custom"].map(opt => (
-                  <button key={opt} onClick={() => setCompareBy(opt)}
+              <div className="flex flex-wrap gap-3 mb-4">
+                {["Schools","Fests","Internal vs External","Custom"].map(opt => (
+                  <button key={opt} onClick={() => { setCompareBy(opt); setCustomSelection([]); }}
                     className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${compareBy===opt ? "bg-[#1a1a2e] text-white" : "bg-[#f5f5f5] text-[#555] hover:bg-[#eee]"}`}>
                     {opt}
                   </button>
                 ))}
-                <select value={selectedFest} onChange={e=>setSelectedFest(e.target.value)}
-                  className="bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-1.5 text-sm focus:outline-none">
-                  <option>All</option>
-                  {fests.map(f => <option key={f}>{f}</option>)}
-                </select>
-                {compareBy === "Events in Fest" && (
-                  <select value={selectedFestForEvents} onChange={e=>setSelectedFestForEvents(e.target.value)}
-                    className="bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-1.5 text-sm focus:outline-none">
-                    <option value="">Select Fest</option>
-                    {fests.map(f => <option key={f}>{f}</option>)}
-                  </select>
-                )}
               </div>
 
-              {/* Custom selection */}
-              {compareBy === "Custom" && (
-                <div className="mb-4 p-4 bg-[#faf8ff] border border-[#ede8ff] rounded-xl">
-                  <p className="text-xs font-semibold text-[#555] mb-2">Select items to compare (schools, fests, events, types):</p>
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                    {[...new Set([
-                      ...(data?.analytics||[]).map((r:any) => r.school_name).filter(Boolean),
-                      ...(data?.analytics||[]).map((r:any) => r.fest).filter(Boolean),
-                      ...(data?.analytics||[]).map((r:any) => r.sub_event).filter(Boolean),
-                      "internal","external"
-                    ])].map((item:any) => (
-                      <button key={item} onClick={() => setCustomSelection(prev =>
-                        prev.includes(item) ? prev.filter(x=>x!==item) : [...prev, item]
+              {/* Custom selection — organized by category */}
+              {compareBy === "Custom" && (() => {
+                const allSchools = [...new Set((data?.analytics||[]).map((r:any) => r.school_name).filter(Boolean))] as string[];
+                const allFestNames = [...new Set((data?.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[];
+                const allEventNames = [...new Set((data?.analytics||[]).map((r:any) => r.sub_event).filter(Boolean))] as string[];
+                const sections = [
+                  { label: "Schools", items: allSchools, color: "#F0D9EF", textColor: "#9b6aaa" },
+                  { label: "Fests", items: allFestNames, color: "#C4DFE5", textColor: "#4a8fa0" },
+                  { label: "Events", items: allEventNames, color: "#FFE6BB", textColor: "#b07d2a" },
+                  { label: "Type", items: ["internal","external"], color: "#CDE9DC", textColor: "#3a7a5a" },
+                ];
+                return (
+                  <div className="mb-4 p-4 bg-[#faf8ff] border border-[#ede8ff] rounded-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-[#555]">Select items to compare — {customSelection.length} selected</p>
+                      {customSelection.length > 0 && (
+                        <button onClick={() => setCustomSelection([])} className="text-xs text-[#c0546a] hover:underline">Clear all</button>
                       )}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
-                          customSelection.includes(item) ? "bg-[#1a1a2e] text-white border-[#1a1a2e]" : "bg-white text-[#555] border-[#eee] hover:border-[#b388c8]"
-                        }`}>
-                        {item}
-                      </button>
+                    </div>
+                    {sections.map(sec => (
+                      <div key={sec.label}>
+                        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: sec.textColor }}>{sec.label}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {sec.items.map(item => (
+                            <button key={item} onClick={() => setCustomSelection(prev =>
+                              prev.includes(item) ? prev.filter(x=>x!==item) : [...prev, item]
+                            )}
+                              className="px-3 py-1 rounded-full text-xs font-semibold transition-all border"
+                              style={customSelection.includes(item)
+                                ? { background: "#1a1a2e", color: "white", borderColor: "#1a1a2e" }
+                                : { background: sec.color, color: sec.textColor, borderColor: sec.color }
+                              }>
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  {customSelection.length > 0 && (
-                    <button onClick={() => setCustomSelection([])} className="mt-2 text-xs text-[#c0546a] hover:underline">Clear selection</button>
-                  )}
-                </div>
-              )}
+                );
+              })()}
               {chartData.length > 0 && (
                 <div className="grid grid-cols-2 gap-6">
                   <ResponsiveContainer width="100%" height={250}>
@@ -462,12 +458,14 @@ export default function AdminPage() {
                   />
                   <select value={regSortBy} onChange={e => setRegSortBy(e.target.value)}
                     className="bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-2 text-sm focus:outline-none">
-                    <option value="date_desc">Newest First</option>
-                    <option value="date_asc">Oldest First</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                    <option value="fest">By Fest</option>
-                    <option value="event">By Event</option>
+                    <option value="date_desc">Newest Registration</option>
+                    <option value="date_asc">Oldest Registration</option>
+                    <option value="name_asc">Participant Name A-Z</option>
+                    <option value="name_desc">Participant Name Z-A</option>
+                    <option value="roll_asc">Roll Number A-Z</option>
+                    <option value="type_internal">Internal First</option>
+                    <option value="type_external">External First</option>
+                    <option value="school_asc">School A-Z</option>
                   </select>
                 </div>
               </div>
@@ -488,8 +486,10 @@ export default function AdminPage() {
                         if (regSortBy === "date_asc") return new Date(a.registration_date).getTime() - new Date(b.registration_date).getTime();
                         if (regSortBy === "name_asc") return (a.name||"").localeCompare(b.name||"");
                         if (regSortBy === "name_desc") return (b.name||"").localeCompare(a.name||"");
-                        if (regSortBy === "fest") return (a.fest||"").localeCompare(b.fest||"");
-                        if (regSortBy === "event") return (a.event||"").localeCompare(b.event||"");
+                        if (regSortBy === "roll_asc") return (a.roll_number||"").localeCompare(b.roll_number||"");
+                        if (regSortBy === "type_internal") return a.participant_type === "internal" ? -1 : 1;
+                        if (regSortBy === "type_external") return a.participant_type === "external" ? -1 : 1;
+                        if (regSortBy === "school_asc") return (a.school_name||"").localeCompare(b.school_name||"");
                         return new Date(b.registration_date).getTime() - new Date(a.registration_date).getTime();
                       })
                       .map((r:any, i:number) => (
