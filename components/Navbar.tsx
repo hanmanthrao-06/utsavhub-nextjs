@@ -2,10 +2,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import AnnouncementBell from "./AnnouncementBell";
 
 const NAV = [
   { href: "/events",        label: "Events" },
   { href: "/registrations", label: "My Registrations" },
+  { href: "/certificate",   label: "Certificate" },
   { href: "/calendar",      label: "Calendar" },
   { href: "/admin",         label: "Admin" },
 ];
@@ -38,6 +40,7 @@ export default function Navbar({ userName }: { userName?: string }) {
             <Link href="/admin" className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${pathname === "/admin" ? "bg-[#1a1a2e] text-white" : "text-[#555] hover:bg-[#f5f3ff] hover:text-[#9b6aaa]"}`}>Admin</Link>
           )}
           <div className="ml-3 flex items-center gap-3">
+            {userName && <AnnouncementBell />}
             {userName && <span className="text-xs text-[#888] bg-[#f5f3ff] px-4 py-1.5 rounded-full border border-[#ede8ff]">{userName}</span>}
             <button onClick={signOut} className="text-xs text-[#c0546a] bg-[#fff5f7] px-4 py-1.5 rounded-full border border-[#f0c4cc] hover:bg-[#fce8ec] transition-all font-semibold">
               {userName ? "Sign Out" : "← Home"}

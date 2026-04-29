@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
 const FEST_COLORS = ["#F0D9EF","#FCDCE1","#FFE6BB","#E9ECCE","#CDE9DC","#C4DFE5"];
@@ -116,6 +117,13 @@ export default function RegistrationsPage() {
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-[#bbb]">
                           <span>{r.venue||"—"}</span><span>{r.day||"—"}</span><span>{r.time||"—"}</span>
+                        </div>
+                        <div className="mt-3">
+                          <Link href={`/certificate?code=${r.registration_code}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all hover:-translate-y-0.5"
+                            style={{ background:"linear-gradient(135deg,#b388c8,#7bbfcc)", color:"white" }}>
+                            Download Certificate
+                          </Link>
                         </div>
                       </div>
                     );
