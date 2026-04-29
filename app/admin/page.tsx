@@ -19,8 +19,14 @@ export default function AdminPage() {
   const [compareBy, setCompareBy] = useState("Schools");
   const [selectedFest, setSelectedFest] = useState("All");
   const [selectedFestForEvents, setSelectedFestForEvents] = useState("");
+  const [customSelection, setCustomSelection] = useState<string[]>([]);
   const [chartData, setChartData] = useState<{name:string;value:number}[]>([]);
   const [regSearch, setRegSearch] = useState("");
+  const [regSortBy, setRegSortBy] = useState("date_desc");
+  // Fest management
+  const [showAddFest, setShowAddFest] = useState(false);
+  const [newFest, setNewFest] = useState({ name: "" });
+  const [festMsg, setFestMsg] = useState("");
 
   // Event management state
   const [allFests, setAllFests] = useState<{main_event_id:number;name:string}[]>([]);
@@ -82,6 +88,33 @@ export default function AdminPage() {
     if (d.success) { loadData(); }
   }
 
+  async function addFest() {
+    if (!newFest.name.trim()) { setFestMsg("Fest name is required."); return; }
+    const res = await fetch("/api/fests/manage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newFest.name }),
+    });
+    const d = await res.json();
+    if (d.success) {
+      setFestMsg("Fest added!");
+      setNewFest({ name: "" });
+      setShowAddFest(false);
+      loadData();
+    } else { setFestMsg(d.error || "Failed."); }
+  }
+
+  async function deleteFest(festId: number, name: string) {
+    if (!confirm(`Delete fest "${name}"? This will remove all events and registrations under it.`)) return;
+    const res = await fetch("/api/fests/manage", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ festId }),
+    });
+    const d = await res.json();
+    if (d.success) { loadData(); }
+  }
+
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (email.trim().toLowerCase() === ADMIN_EMAIL && pass === ADMIN_PASS && token === ADMIN_TOKEN) {
@@ -101,22 +134,26 @@ export default function AdminPage() {
     const counts: Record<string,number> = {};
 
     if (compareBy === "Events in Fest") {
-      // Count registrations per sub_event within selected fest
-      const festRows = selectedFestForEvents
-        ? rows.filter((r:any) => r.fest === selectedFestForEvents)
-        : filtered;
-      festRows.forEach((r:any) => {
-        const key = r.sub_event || "Unknown";
-        if (key) counts[key] = (counts[key]||0) + 1;
+      const festRows = selectedFestForEvents ? rows.filter((r:any) => r.fest === selectedFestForEvents) : filtered;
+      festRows.forEach((r:any) => { const k = r.sub_event||"Unknown"; counts[k]=(counts[k]||0)+1; });
+    } else if (compareBy === "Custom") {
+      filtered.forEach((r:any) => {
+        const school = r.school_name||"Unknown";
+        const dept = r.department||"Unknown";
+        const type = r.participant_type||"Unknown";
+        const fest = r.fest||"Unknown";
+        const event = r.sub_event||"Unknown";
+        const key = [school,dept,type,fest,event].find(v => customSelection.includes(v));
+        if (key) counts[key]=(counts[key]||0)+1;
       });
     } else {
       filtered.forEach((r:any) => {
-        const key = compareBy === "Schools" ? r.school_name : compareBy === "Departments" ? r.department : r.participant_type;
-        if (key) counts[key] = (counts[key]||0) + 1;
+        const key = compareBy==="Schools" ? r.school_name : compareBy==="Departments" ? r.department : compareBy==="Fests" ? r.fest : r.participant_type;
+        if (key) counts[key]=(counts[key]||0)+1;
       });
     }
-    setChartData(Object.entries(counts).map(([name,value]) => ({ name: name||"Unknown", value })).sort((a,b) => b.value-a.value).slice(0,15));
-  }, [data, compareBy, selectedFest, selectedFestForEvents]);
+    setChartData(Object.entries(counts).map(([name,value]) => ({ name:name||"Unknown", value })).sort((a,b)=>b.value-a.value).slice(0,20));
+  }, [data, compareBy, selectedFest, selectedFestForEvents, customSelection]);
 
   const fests = data ? [...new Set((data.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[] : [];
 
@@ -181,7 +218,7 @@ export default function AdminPage() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8] mb-6">
               <h2 className="font-semibold text-[#1a1a2e] text-base mb-4">Participation Analytics</h2>
               <div className="flex flex-wrap gap-3 mb-6">
-                {["Schools","Departments","Internal vs External","Events in Fest"].map(opt => (
+                {["Schools","Departments","Fests","Internal vs External","Events in Fest","Custom"].map(opt => (
                   <button key={opt} onClick={() => setCompareBy(opt)}
                     className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${compareBy===opt ? "bg-[#1a1a2e] text-white" : "bg-[#f5f5f5] text-[#555] hover:bg-[#eee]"}`}>
                     {opt}
@@ -200,6 +237,33 @@ export default function AdminPage() {
                   </select>
                 )}
               </div>
+
+              {/* Custom selection */}
+              {compareBy === "Custom" && (
+                <div className="mb-4 p-4 bg-[#faf8ff] border border-[#ede8ff] rounded-xl">
+                  <p className="text-xs font-semibold text-[#555] mb-2">Select items to compare (schools, fests, events, types):</p>
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                    {[...new Set([
+                      ...(data?.analytics||[]).map((r:any) => r.school_name).filter(Boolean),
+                      ...(data?.analytics||[]).map((r:any) => r.fest).filter(Boolean),
+                      ...(data?.analytics||[]).map((r:any) => r.sub_event).filter(Boolean),
+                      "internal","external"
+                    ])].map((item:any) => (
+                      <button key={item} onClick={() => setCustomSelection(prev =>
+                        prev.includes(item) ? prev.filter(x=>x!==item) : [...prev, item]
+                      )}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                          customSelection.includes(item) ? "bg-[#1a1a2e] text-white border-[#1a1a2e]" : "bg-white text-[#555] border-[#eee] hover:border-[#b388c8]"
+                        }`}>
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                  {customSelection.length > 0 && (
+                    <button onClick={() => setCustomSelection([])} className="mt-2 text-xs text-[#c0546a] hover:underline">Clear selection</button>
+                  )}
+                </div>
+              )}
               {chartData.length > 0 && (
                 <div className="grid grid-cols-2 gap-6">
                   <ResponsiveContainer width="100%" height={250}>
@@ -222,6 +286,62 @@ export default function AdminPage() {
                   </ResponsiveContainer>
                 </div>
               )}
+            </div>
+
+            {/* Fest Management */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8] mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-[#1a1a2e] text-base">Fest Management</h2>
+                <button onClick={() => { setShowAddFest(!showAddFest); setFestMsg(""); }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
+                  style={{ background: "linear-gradient(135deg,#9b6aaa,#4a8fa0)" }}>
+                  {showAddFest ? "Cancel" : "+ Add Fest"}
+                </button>
+              </div>
+              {showAddFest && (
+                <div className="bg-[#faf8ff] border border-[#ede8ff] rounded-xl p-4 mb-4">
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1">
+                      <label className="text-xs text-[#888] font-semibold mb-1 block">Fest Name *</label>
+                      <input value={newFest.name} onChange={e => setNewFest({ name: e.target.value })}
+                        placeholder="e.g. TechFest 2026"
+                        className="w-full bg-white border border-[#eee] rounded-lg px-3 py-2 text-sm text-[#1a1a2e] focus:outline-none focus:border-[#b388c8] transition-all" />
+                    </div>
+                    <button onClick={addFest}
+                      className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+                      style={{ background: "linear-gradient(135deg,#9b6aaa,#4a8fa0)" }}>
+                      Add Fest
+                    </button>
+                  </div>
+                  {festMsg && <p className={`text-xs mt-2 ${festMsg.includes("added") ? "text-green-600" : "text-red-500"}`}>{festMsg}</p>}
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#f0eef8]">
+                      {["Fest Name","Events","Action"].map(h => (
+                        <th key={h} className="text-left py-2 px-3 text-xs text-[#aaa] font-semibold uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allFests.map(f => (
+                      <tr key={f.main_event_id} className="border-b border-[#f9f9f9] hover:bg-[#faf8ff] transition-colors">
+                        <td className="py-2 px-3 font-medium text-[#1a1a2e]">{f.name}</td>
+                        <td className="py-2 px-3 text-xs text-[#888]">{allEvents.filter(e => e.fest_name === f.name).length} events</td>
+                        <td className="py-2 px-3">
+                          <button onClick={() => deleteFest(f.main_event_id, f.name)}
+                            className="text-xs text-[#c0546a] bg-[#fff5f7] px-3 py-1 rounded-lg border border-[#f0c4cc] hover:bg-[#fce8ec] transition-all font-semibold">
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {allFests.length === 0 && <p className="text-center text-[#bbb] text-sm py-4">No fests found</p>}
+              </div>
             </div>
 
             {/* Event Management */}
@@ -333,12 +453,23 @@ export default function AdminPage() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                 <h2 className="font-semibold text-[#1a1a2e] text-base">Recent Registrations</h2>
-                <input
-                  value={regSearch}
-                  onChange={e => setRegSearch(e.target.value)}
-                  placeholder="Search by name, roll, email, event..."
-                  className="w-full sm:w-72 bg-[#fafafa] border border-[#eee] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#b388c8] transition-all"
-                />
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <input
+                    value={regSearch}
+                    onChange={e => setRegSearch(e.target.value)}
+                    placeholder="Search name, roll, email, event..."
+                    className="w-full sm:w-64 bg-[#fafafa] border border-[#eee] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#b388c8] transition-all"
+                  />
+                  <select value={regSortBy} onChange={e => setRegSortBy(e.target.value)}
+                    className="bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-2 text-sm focus:outline-none">
+                    <option value="date_desc">Newest First</option>
+                    <option value="date_asc">Oldest First</option>
+                    <option value="name_asc">Name A-Z</option>
+                    <option value="name_desc">Name Z-A</option>
+                    <option value="fest">By Fest</option>
+                    <option value="event">By Event</option>
+                  </select>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[600px]">
@@ -353,6 +484,14 @@ export default function AdminPage() {
                     {(data?.registrations||[])
                       .filter((r:any) => !regSearch || [r.name, r.roll_number, r.email, r.event, r.fest, r.participant_type]
                         .some((v:any) => v && String(v).toLowerCase().includes(regSearch.toLowerCase())))
+                      .sort((a:any, b:any) => {
+                        if (regSortBy === "date_asc") return new Date(a.registration_date).getTime() - new Date(b.registration_date).getTime();
+                        if (regSortBy === "name_asc") return (a.name||"").localeCompare(b.name||"");
+                        if (regSortBy === "name_desc") return (b.name||"").localeCompare(a.name||"");
+                        if (regSortBy === "fest") return (a.fest||"").localeCompare(b.fest||"");
+                        if (regSortBy === "event") return (a.event||"").localeCompare(b.event||"");
+                        return new Date(b.registration_date).getTime() - new Date(a.registration_date).getTime();
+                      })
                       .map((r:any, i:number) => (
                       <tr key={i} className="border-b border-[#f9f9f9] hover:bg-[#faf8ff] transition-colors">
                         <td className="py-2 px-3 font-mono text-xs text-[#9b6aaa]">{r.registration_code}</td>
