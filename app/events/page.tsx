@@ -71,6 +71,8 @@ export default function EventsPage() {
     (catFilter === "All" || (e.category || "").toLowerCase() === catFilter.toLowerCase())
   );
 
+  const [confirmEvent, setConfirmEvent] = useState<{e: Event; isGroup: boolean} | null>(null);
+
   async function registerSolo(e: Event) {
     const res = await fetch("/api/registration", {
       method: "POST",
@@ -81,6 +83,7 @@ export default function EventsPage() {
     if (data.success) {
       setRegistered(prev => [...prev, e.sub_event_id]);
       setRegSuccess(prev => ({ ...prev, [e.sub_event_id]: data.code }));
+      setConfirmEvent(null);
     }
   }
 
@@ -245,11 +248,31 @@ export default function EventsPage() {
                     {!isReg && (
                       <div className="mt-4 pt-4 border-t border-[#f5f5f5]">
                         {!isGroup ? (
-                          <button onClick={() => registerSolo(e)}
-                            className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                            style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
-                            Register for {e.name}
-                          </button>
+                          <>
+                            {confirmEvent?.e.sub_event_id === e.sub_event_id ? (
+                              <div className="bg-[#faf8ff] border border-[#ede8ff] rounded-xl p-4">
+                                <p className="text-sm font-semibold text-[#1a1a2e] mb-1">Confirm Registration</p>
+                                <p className="text-xs text-[#888] mb-3">Register for <strong>{e.name}</strong> under <strong>{selectedFest?.name}</strong>?</p>
+                                <div className="flex gap-2">
+                                  <button onClick={() => registerSolo(e)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+                                    style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
+                                    Yes, Register
+                                  </button>
+                                  <button onClick={() => setConfirmEvent(null)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-[#888] bg-[#f5f5f5] hover:bg-[#eee] transition-all">
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button onClick={() => setConfirmEvent({ e, isGroup: false })}
+                                className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                                style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
+                                Register for {e.name}
+                              </button>
+                            )}
+                          </>
                         ) : (
                           <div>
                             {/* Step 1: Register as Group button */}

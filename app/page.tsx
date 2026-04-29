@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
+  const [otpDisplay, setOtpDisplay] = useState("");
 
   useEffect(() => {
     // Check if already logged in
@@ -59,11 +60,13 @@ export default function LoginPage() {
     }
   }
 
+  const [otpDisplay, setOtpDisplay] = useState("");
+
   function sendOtp() {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
     setOtpSent(true);
-    alert(`OTP (demo): ${code}`);
+    setOtpDisplay(code); // show inline — in production send via email
   }
 
   async function handleRegister(e: React.FormEvent) {
@@ -239,6 +242,12 @@ export default function LoginPage() {
                 </button>
               ) : (
                 <>
+                  {otpDisplay && (
+                    <div className="bg-white/15 border border-white/25 rounded-xl px-4 py-3 text-center">
+                      <div className="text-white/60 text-xs mb-1">Your OTP (demo mode)</div>
+                      <div className="text-white font-bold text-2xl tracking-[8px] font-mono">{otpDisplay}</div>
+                    </div>
+                  )}
                   <input value={otp} onChange={e => setOtp(e.target.value)} placeholder="Enter 6-digit OTP"
                     className="w-full bg-white/15 text-white placeholder-white/40 border border-white/25 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/60 transition-all" style={{ color:"white" }} />
                   {error && <p className="text-red-300 text-xs">{error}</p>}

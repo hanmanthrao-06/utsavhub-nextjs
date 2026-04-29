@@ -18,7 +18,9 @@ export default function AdminPage() {
   const [data, setData] = useState<any>(null);
   const [compareBy, setCompareBy] = useState("Schools");
   const [selectedFest, setSelectedFest] = useState("All");
+  const [selectedFestForEvents, setSelectedFestForEvents] = useState("");
   const [chartData, setChartData] = useState<{name:string;value:number}[]>([]);
+  const [regSearch, setRegSearch] = useState("");
 
   // Event management state
   const [allFests, setAllFests] = useState<{main_event_id:number;name:string}[]>([]);
@@ -97,12 +99,24 @@ export default function AdminPage() {
     let filtered = rows;
     if (selectedFest !== "All") filtered = rows.filter((r:any) => r.fest === selectedFest);
     const counts: Record<string,number> = {};
-    filtered.forEach((r:any) => {
-      const key = compareBy === "Schools" ? r.school_name : compareBy === "Departments" ? r.department : r.participant_type;
-      if (key) counts[key] = (counts[key]||0) + 1;
-    });
-    setChartData(Object.entries(counts).map(([name,value]) => ({ name: name||"Unknown", value })).sort((a,b) => b.value-a.value).slice(0,10));
-  }, [data, compareBy, selectedFest]);
+
+    if (compareBy === "Events in Fest") {
+      // Count registrations per sub_event within selected fest
+      const festRows = selectedFestForEvents
+        ? rows.filter((r:any) => r.fest === selectedFestForEvents)
+        : filtered;
+      festRows.forEach((r:any) => {
+        const key = r.sub_event || "Unknown";
+        if (key) counts[key] = (counts[key]||0) + 1;
+      });
+    } else {
+      filtered.forEach((r:any) => {
+        const key = compareBy === "Schools" ? r.school_name : compareBy === "Departments" ? r.department : r.participant_type;
+        if (key) counts[key] = (counts[key]||0) + 1;
+      });
+    }
+    setChartData(Object.entries(counts).map(([name,value]) => ({ name: name||"Unknown", value })).sort((a,b) => b.value-a.value).slice(0,15));
+  }, [data, compareBy, selectedFest, selectedFestForEvents]);
 
   const fests = data ? [...new Set((data.analytics||[]).map((r:any) => r.fest).filter(Boolean))] as string[] : [];
 
@@ -166,8 +180,8 @@ export default function AdminPage() {
             {/* Analytics */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8] mb-6">
               <h2 className="font-semibold text-[#1a1a2e] text-base mb-4">Participation Analytics</h2>
-              <div className="flex gap-3 mb-6 flex-wrap">
-                {["Schools","Departments","Internal vs External"].map(opt => (
+              <div className="flex flex-wrap gap-3 mb-6">
+                {["Schools","Departments","Internal vs External","Events in Fest"].map(opt => (
                   <button key={opt} onClick={() => setCompareBy(opt)}
                     className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${compareBy===opt ? "bg-[#1a1a2e] text-white" : "bg-[#f5f5f5] text-[#555] hover:bg-[#eee]"}`}>
                     {opt}
@@ -178,6 +192,13 @@ export default function AdminPage() {
                   <option>All</option>
                   {fests.map(f => <option key={f}>{f}</option>)}
                 </select>
+                {compareBy === "Events in Fest" && (
+                  <select value={selectedFestForEvents} onChange={e=>setSelectedFestForEvents(e.target.value)}
+                    className="bg-[#fafafa] border border-[#eee] rounded-xl px-3 py-1.5 text-sm focus:outline-none">
+                    <option value="">Select Fest</option>
+                    {fests.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                )}
               </div>
               {chartData.length > 0 && (
                 <div className="grid grid-cols-2 gap-6">
@@ -310,9 +331,17 @@ export default function AdminPage() {
 
             {/* Registrations table */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#f0eef8]">
-              <h2 className="font-semibold text-[#1a1a2e] text-base mb-4">Recent Registrations</h2>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <h2 className="font-semibold text-[#1a1a2e] text-base">Recent Registrations</h2>
+                <input
+                  value={regSearch}
+                  onChange={e => setRegSearch(e.target.value)}
+                  placeholder="Search by name, roll, email, event..."
+                  className="w-full sm:w-72 bg-[#fafafa] border border-[#eee] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#b388c8] transition-all"
+                />
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[600px]">
                   <thead>
                     <tr className="border-b border-[#f0eef8]">
                       {["Code","Date","Name","Roll","Email","Type","Event","Fest"].map(h => (
@@ -321,7 +350,10 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(data?.registrations||[]).map((r:any, i:number) => (
+                    {(data?.registrations||[])
+                      .filter((r:any) => !regSearch || [r.name, r.roll_number, r.email, r.event, r.fest, r.participant_type]
+                        .some((v:any) => v && String(v).toLowerCase().includes(regSearch.toLowerCase())))
+                      .map((r:any, i:number) => (
                       <tr key={i} className="border-b border-[#f9f9f9] hover:bg-[#faf8ff] transition-colors">
                         <td className="py-2 px-3 font-mono text-xs text-[#9b6aaa]">{r.registration_code}</td>
                         <td className="py-2 px-3 text-xs text-[#888]">{r.registration_date ? new Date(r.registration_date).toLocaleDateString() : "—"}</td>
