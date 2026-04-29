@@ -60,8 +60,6 @@ export default function LoginPage() {
     }
   }
 
-  const [otpDisplay, setOtpDisplay] = useState("");
-
   function sendOtp() {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
