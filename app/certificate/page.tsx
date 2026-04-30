@@ -1,18 +1,30 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 
-export default function CertificatePage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function CertificateContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const certRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<{participant_id:number;name:string}|null>(null);
   const [regs, setRegs] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+  const [searchParams, setSearchParams] = useState<URLSearchParams | null>(null);
 
   useEffect(() => {
+    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      setSearchParams(new URLSearchParams(window.location.search));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !searchParams) return;
     const u = sessionStorage.getItem("user");
     if (!u) { router.push("/"); return; }
     const parsed = JSON.parse(u);
@@ -29,7 +41,7 @@ export default function CertificatePage() {
           if (found) setSelected(found);
         }
       });
-  }, [router, searchParams]);
+  }, [router, searchParams, isClient]);
 
   function printCert() {
     const el = certRef.current;
@@ -50,7 +62,14 @@ export default function CertificatePage() {
     setTimeout(() => { w.print(); w.close(); }, 500);
   }
 
-  if (!user) return null;
+  if (!isClient || !user) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background:"linear-gradient(160deg,#faf8ff 0%,#f5f0fa 30%,#eef6f8 60%,#f0f8f4 100%)" }}>
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#b388c8] mx-auto mb-4"></div>
+        <p className="text-[#aaa]">Loading...</p>
+      </div>
+    </div>
+  );
 
   const today = new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
 
@@ -162,4 +181,8 @@ export default function CertificatePage() {
       </div>
     </div>
   );
+}
+
+export default function Certificate() {
+  return <CertificateContent />;
 }
