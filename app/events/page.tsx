@@ -71,6 +71,8 @@ export default function EventsPage() {
     (catFilter === "All" || (e.category || "").toLowerCase() === catFilter.toLowerCase())
   );
 
+  const [confirmEvent, setConfirmEvent] = useState<{e: Event; isGroup: boolean} | null>(null);
+
   async function registerSolo(e: Event) {
     const res = await fetch("/api/registration", {
       method: "POST",
@@ -81,6 +83,7 @@ export default function EventsPage() {
     if (data.success) {
       setRegistered(prev => [...prev, e.sub_event_id]);
       setRegSuccess(prev => ({ ...prev, [e.sub_event_id]: data.code }));
+      setConfirmEvent(null);
     }
   }
 
@@ -126,12 +129,12 @@ export default function EventsPage() {
 
       {!selectedFest ? (
         /* FEST OVERVIEW */
-        <div className="max-w-5xl mx-auto px-6 py-10">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10">
           <div className="text-center mb-10 animate-fade-in-down">
             <h1 className="font-playfair text-4xl font-bold text-[#1a1a2e] mb-2">Explore Fests</h1>
             <p className="text-[#aaa] text-sm">Choose a fest to browse and register for competitions</p>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {fests.map((fest, i) => {
               const p = FEST_PALETTE[i % FEST_PALETTE.length];
               const count = countMap[fest.main_event_id] || 0;
@@ -164,7 +167,7 @@ export default function EventsPage() {
         </div>
       ) : (
         /* FEST DETAIL */
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8">
           {/* Back */}
           <button onClick={() => { setSelectedFest(null); setEvents([]); setSearch(""); setCatFilter("All"); }}
             className="flex items-center gap-2 text-sm font-semibold text-[#555] hover:text-[#9b6aaa] mb-6 transition-colors">
@@ -191,7 +194,7 @@ export default function EventsPage() {
           })()}
 
           {/* Filters */}
-          <div className="flex gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search events by name..."
               className="flex-1 bg-white border border-[#eee] rounded-xl px-4 py-2.5 text-sm text-[#1a1a2e] focus:outline-none focus:border-[#b388c8] transition-all" />
@@ -245,11 +248,31 @@ export default function EventsPage() {
                     {!isReg && (
                       <div className="mt-4 pt-4 border-t border-[#f5f5f5]">
                         {!isGroup ? (
-                          <button onClick={() => registerSolo(e)}
-                            className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                            style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
-                            Register for {e.name}
-                          </button>
+                          <>
+                            {confirmEvent?.e.sub_event_id === e.sub_event_id ? (
+                              <div className="bg-[#faf8ff] border border-[#ede8ff] rounded-xl p-4">
+                                <p className="text-sm font-semibold text-[#1a1a2e] mb-1">Confirm Registration</p>
+                                <p className="text-xs text-[#888] mb-3">Register for <strong>{e.name}</strong> under <strong>{selectedFest?.name}</strong>?</p>
+                                <div className="flex gap-2">
+                                  <button onClick={() => registerSolo(e)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+                                    style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
+                                    Yes, Register
+                                  </button>
+                                  <button onClick={() => setConfirmEvent(null)}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-[#888] bg-[#f5f5f5] hover:bg-[#eee] transition-all">
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button onClick={() => setConfirmEvent({ e, isGroup: false })}
+                                className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                                style={{ background: `linear-gradient(135deg, ${p.accent}, #4a8fa0)` }}>
+                                Register for {e.name}
+                              </button>
+                            )}
+                          </>
                         ) : (
                           <div>
                             {/* Step 1: Register as Group button */}
@@ -286,7 +309,7 @@ export default function EventsPage() {
                                   {form.members.map((m, mi) => (
                                     <div key={mi}>
                                       <p className="text-xs font-semibold text-[#888] mb-1.5">Member {mi + 1}</p>
-                                      <div className="grid grid-cols-3 gap-2">
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                         <input value={m.name} onChange={e2 => updateMember(e.sub_event_id, mi, "name", e2.target.value)}
                                           placeholder="Full name"
                                           className="bg-[#fafafa] border border-[#eee] rounded-lg px-3 py-2 text-xs text-[#1a1a2e] focus:outline-none focus:border-[#b388c8] transition-all" />

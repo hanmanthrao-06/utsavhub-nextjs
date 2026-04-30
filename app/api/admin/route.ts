@@ -15,11 +15,13 @@ export async function GET() {
       `),
       pool.query(`
         SELECT r.registration_code, r.registration_date, p.name, p.roll_number,
-               p.email, p.participant_type, s.name as event, m.name as fest
+               p.email, p.participant_type, s.name as event, m.name as fest,
+               sc.school_name
         FROM registrations r
         JOIN participants p ON r.participant_id=p.participant_id
         JOIN sub_events s ON r.sub_event_id=s.sub_event_id
         JOIN main_events m ON r.main_event_id=m.main_event_id
+        LEFT JOIN schools sc ON p.school_id=sc.school_id
         ORDER BY r.registration_date DESC LIMIT 500
       `),
       pool.query(`

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
 const FEST_COLORS = ["#F0D9EF","#FCDCE1","#FFE6BB","#E9ECCE","#CDE9DC","#C4DFE5"];
@@ -47,7 +48,7 @@ export default function RegistrationsPage() {
   return (
     <div className="min-h-screen" style={{ background:"linear-gradient(160deg,#faf8ff 0%,#f5f0fa 30%,#eef6f8 60%,#f0f8f4 100%)" }}>
       <Navbar userName={user.name} />
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in-down">
           <h1 className="font-playfair text-4xl font-bold text-[#1a1a2e] mb-2">My Registrations</h1>
@@ -56,7 +57,7 @@ export default function RegistrationsPage() {
 
         {/* Summary */}
         {regs.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-8 animate-fade-in">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 animate-fade-in">
             {[
               { num: regs.length, label: "Events Registered" },
               { num: festNames.length, label: "Fests" },
@@ -92,7 +93,7 @@ export default function RegistrationsPage() {
                   <span className="text-sm font-bold px-4 py-1.5 rounded-full" style={{ background:fc, color:ft }}>{festName}</span>
                   <span className="text-xs text-[#aaa]">{grouped[festName].length} events</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {grouped[festName].map(r => {
                     const [cbg, ccolor] = CAT_COLORS[(r.category||"").toLowerCase()] || ["#f0f0f0","#666"];
                     return (
@@ -116,6 +117,13 @@ export default function RegistrationsPage() {
                         </div>
                         <div className="flex flex-wrap gap-3 text-xs text-[#bbb]">
                           <span>{r.venue||"—"}</span><span>{r.day||"—"}</span><span>{r.time||"—"}</span>
+                        </div>
+                        <div className="mt-3">
+                          <Link href={`/certificate?code=${r.registration_code}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all hover:-translate-y-0.5"
+                            style={{ background:"linear-gradient(135deg,#b388c8,#7bbfcc)", color:"white" }}>
+                            Download Certificate
+                          </Link>
                         </div>
                       </div>
                     );
