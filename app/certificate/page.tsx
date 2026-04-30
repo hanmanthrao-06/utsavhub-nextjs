@@ -3,9 +3,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 function CertificateContent() {
   const router = useRouter();
   const certRef = useRef<HTMLDivElement>(null);
